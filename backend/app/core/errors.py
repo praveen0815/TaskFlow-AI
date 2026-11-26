@@ -9,6 +9,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 
+class APIError(Exception):
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+
+
+class RateLimitExceeded(Exception):
+    def __init__(self, retry_after: int) -> None:
+        self.retry_after = retry_after
+
+
 async def http_exception_handler(
     request: Request,
     exc: StarletteHTTPException,
@@ -44,6 +57,34 @@ async def validation_exception_handler(
                 "code": "validation_error",
                 "message": "Request validation failed.",
                 "details": errors,
+            }
+        },
+    )
+
+
+async def rate_limit_exception_handler(
+    request: Request,
+    exc: RateLimitExceeded,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        headers={"Retry-After": str(exc.retry_after)},
+        content={
+            "error": {
+                "code": "rate_limit_exceeded",
+                "message": "Too many requests. Try again later.",
+            }
+        },
+    )
+
+
+async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
             }
         },
     )

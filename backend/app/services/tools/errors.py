@@ -1,0 +1,2 @@
+class ToolInputError(ValueError):
+    pass
